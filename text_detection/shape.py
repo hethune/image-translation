@@ -3,9 +3,11 @@
 class TextBox(object):
   ''' text box
   '''
-  def __init__(self, text, vertices):
+  def __init__(self, text, vertices, bg_color=None, text_color=None):
     self.text = text
     self.vertices = vertices
+    self.bg_color = bg_color
+    self.text_color = text_color
 
   def contains(self, other):
     assert isinstance(other, self.__class__)

@@ -1,3 +1,7 @@
 google-cloud-vision==1.0.0
+google-cloud-translate==2.0.1
+translate_v2
 Pillow
 numpy
+scipy
+six
