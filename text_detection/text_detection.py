@@ -28,7 +28,6 @@ def wipe_out_and_translate(img_path, texts):
   for i in range(0, len(translated)):
     clusters[i].text = translated[i]
   print("Translated {} to {}".format(original, translated))
-  return
   im = Image.open(img_path)
   print("Calcuating text color and bg color")
   for c in clusters:
