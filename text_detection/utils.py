@@ -87,17 +87,19 @@ def high_pass_image(im):
 
 def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
   ''' reverse: True get edge; False get backgroud
+  bucket rgb by 10s and get most common bucket
   '''
   rt = []
   gt = []
   bt = []
+  original = []
   im = im.convert('RGB')
   if mask:
     mask = mask.convert('L')
   for i in range(x_min, x_max+1):
     for j in range(y_min,y_max+1):
-      print(im.getpixel((i,j)))
       r, g, b = im.getpixel((i, j))
+      original.append((r,g,b))
       to_add = mask is None
       if mask:
         c = mask.getpixel((i,j))
@@ -111,9 +113,16 @@ def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
         rt.append(r)
         gt.append(g)
         bt.append(b)
+  orignal_mean = (np.average(np.array([x[0] for x in original])), np.average(np.array([x[1] for x in original])), np.average(np.array([x[2] for x in original])))
+  # hro = np.histogram([x[0] for x in original], bins=16)
+  # logger.debug("Original bins: {}".format(hro))
+  # hrt = np.histogram(rt, bins=16)
+  # logger.debug("Masked bins: {}".format(hrt))
   r_mean = int(np.average(np.array(rt)))
   g_mean = int(np.average(np.array(gt)))
   b_mean = int(np.average(np.array(bt)))
+  logger.debug("original color mean is {} masked is {}".format(orignal_mean, (r_mean, g_mean, b_mean)))
+  logger.debug("original data point size is {} masked is {}".format(len(original), len(rt)))
   return (r_mean, g_mean, b_mean)
 
 def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_scale=0.8):
