@@ -63,9 +63,6 @@ def translate(text, source_language='zh-CN', target_language="en"):
   """
   translate_client = translate_v2.Client()
 
-  if isinstance(text, six.binary_type):
-    text = text.decode('utf-8')
-
   # Text can also be a sequence of strings, in which case this method
   # will return a sequence of results for each text.
   result = translate_client.translate(
@@ -105,6 +102,6 @@ if __name__ == "__main__":
   parser.add_argument('--path', type=str, default=None, help='path to input image file')
   args = parser.parse_args()
 
-  # detect_text(args.path)  
+  # texts = detect_text(args.path)  
   texts = load()
   wipe_out_and_translate(args.path, texts)
