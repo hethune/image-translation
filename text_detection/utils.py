@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import  sys
+import html
 
 from PIL import Image, ImageDraw, ImageFont, ImageDraw
 import numpy as np
 from scipy import stats
+from google.cloud import vision, translate_v2
 
 from shape import TextBox
 
@@ -150,3 +152,62 @@ def cluster_texts(text_boxes):
       cluster.append([t])
   combined_cluster = [combine(c) for c in cluster]
   return combined_cluster
+
+
+def detect_text(path):
+  """Detects text in the file."""
+
+  client = vision.ImageAnnotatorClient()
+  with open(path, 'rb') as image_file:
+    content = image_file.read()
+  image = vision.types.Image(content=content)
+  response = client.text_detection(image=image)
+  texts = response.text_annotations
+
+  results = []
+
+  print('Texts:')
+
+  for text in texts:
+    print('\n"{}"'.format(text.description))
+
+    vertices = [(vertex.x, vertex.y) for vertex in text.bounding_poly.vertices]
+    text_box = TextBox(text.description, vertices)
+
+    results.append(text_box)
+
+    print('bounds: {}'.format(vertices))
+
+  print(results)
+  dump(results)
+
+  if response.error.message:
+    raise Exception(
+      '{}\nFor more info on error messages, check: '
+      'https://cloud.google.com/apis/design/errors'.format(
+        response.error.message))
+
+
+def translate(text, source_language='zh-CN', target_language="en"):
+  """Translates text into the target language.
+  Make sure your project is whitelisted.
+
+  Target must be an ISO 639-1 language code.
+  See https://g.co/cloud/translate/v2/translate-reference#supported_languages
+  """
+  assert type(text) is str or type(text) is list
+  translate_client = translate_v2.Client()
+
+  # Text can also be a sequence of strings, in which case this method
+  # will return a sequence of results for each text.
+  raw_result = translate_client.translate(
+    text, source_language=source_language, target_language=target_language, model="nmt")
+
+  if type(text) is str:
+    result = html.unescape(raw_result['translatedText'])
+  elif type(text) is list:
+    result = [html.unescape(x['translatedText']) for x in raw_result]
+  else:
+    raise Exception("Unknown return type from Google translate {} {}".format(type(t_text), t_text))
+
+  return result
