@@ -4,19 +4,21 @@ import html
 import logging
 import os
 
-from PIL import Image, ImageDraw, ImageFont, ImageDraw
+from PIL import Image, ImageDraw, ImageFont, ImageDraw, ImageFilter
 import numpy as np
 from scipy import stats
 from google.cloud import vision, translate_v2
 
 from shape import TextBox
 
+DEBUG = True
+
 dirname = os.path.dirname(__file__)
 LOG_FILE = os.path.join(dirname, '../log/image-tranlsation.log')
 
 logger = logging.getLogger('image-tranlsation')
 
-level = logging.WARNING
+level = logging.DEBUG if DEBUG else loggging.WARNING
 
 logger.setLevel(level)
 # create file handler which logs even debug messages
@@ -43,46 +45,62 @@ def draw_clusters(im, clusters):
     draw_box(im, [c.vertices[0], c.vertices[2]], outline="red")
   im.show()
 
-def get_background_color(im, x_min, x_max, y_min, y_max):
-  rgb_im = im.convert('RGB')
-  rt = []
-  gt = []
-  bt = []
-  for i in range(x_min, x_max+1):
-    for j in range(y_min,y_max+1):
-      r, g, b = rgb_im.getpixel((i, j))
-      rt.append(r)
-      gt.append(g)
-      bt.append(b)
-  r_mean = int(stats.mode(np.array(rt))[0][0])
-  g_mean = int(stats.mode(np.array(gt))[0][0])
-  b_mean = int(stats.mode(np.array(bt))[0][0])
-  return (r_mean, g_mean, b_mean)
+def low_pass_image(im):
+  km = np.array((
+        (1/9, 1/9, 1/9),
+        (1/9, 1/9, 1/9),
+        (1/9, 1/9, 1/9),
+      )) 
+  k = ImageFilter.Kernel(
+      size=km.shape,
+      kernel=km.flatten(),
+      scale=np.sum(km),
+    )
+  rgb_im = im.convert('RGB').filter(k)
+  return rgb_im
 
-def get_text_color(im, x_min, x_max, y_min, y_max):
-  ''' get text color by computing the mode without the background color
+def high_pass_image(im):
+  km = np.array((
+      (-1/9, -1/9, -1/9),
+      (-1/9, 8/9, -1/9),
+      (-1/9, -1/9, -1/9),
+    )) 
+  k = ImageFilter.Kernel(
+      size=km.shape,
+      kernel=km.flatten(),
+      scale=np.sum(km),
+    )
+  rgb_im = im.convert('RGB').filter(k)
+  return rgb_im
+
+def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
+  ''' reverse: True get edge; False get backgroud
   '''
-  threshold = 40
-  (br,bg,bb) = get_background_color(im, x_min, x_max, y_min, y_max)
-  rgb_im = im.convert('RGB')
   rt = []
   gt = []
   bt = []
+  if mask:
+    mask = mask.convert('L')
   for i in range(x_min, x_max+1):
     for j in range(y_min,y_max+1):
-      r, g, b = rgb_im.getpixel((i, j))
-      # if (r,g,b) != (br, bg, bb):
-      if (r < br-threshold or r>br+threshold) or (g < bg-threshold or g>bg+threshold) or (b < bb-threshold or b>bb+threshold):
+      r, g, b = im.getpixel((i, j))
+      to_add = mask is None
+      if mask:
+        c = mask.getpixel((i,j))
+        if reverse:
+          if c < 10:
+            to_add = True
+        else:
+          if c >= 10:
+            to_add = True
+      if to_add:
         rt.append(r)
         gt.append(g)
         bt.append(b)
-  r_mean = int(stats.mode(np.array(rt))[0][0])
-  g_mean = int(stats.mode(np.array(gt))[0][0])
-  b_mean = int(stats.mode(np.array(bt))[0][0])
-  # r_mean = 128 if len(rt) == 0 else int(np.mean(np.array(rt)))
-  # g_mean = 0 if len(gt) == 0 else int(np.mean(np.array(gt)))
-  # b_mean = 0 if len(bt) == 0 else int(np.mean(np.array(bt)))
-  return (r_mean, g_mean, b_mean) 
+  r_mean = int(np.average(np.array(rt)))
+  g_mean = int(np.average(np.array(gt)))
+  b_mean = int(np.average(np.array(bt)))
+  return (r_mean, g_mean, b_mean)
 
 def find_fit_font(im, text, font_type, m_width, m_height, max_scale=0.95, min_scale=0.8):
   draw_txt = ImageDraw.Draw(im.copy())
@@ -198,7 +216,7 @@ def cluster_texts(text_boxes):
     mean = np.average(widths)
     std = np.std(widths)
     # i don't know; need to try
-    w_threshold = mean + 2*std
+    w_threshold = mean
     logger.debug("threshold {} mean {} std {}".format(w_threshold, mean, std))
     # sort from left to right
     c.sort(key=lambda x: x.center()[0])
