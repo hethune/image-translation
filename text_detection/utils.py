@@ -41,6 +41,7 @@ def draw_box(im, vertices, outline=None, fill=None):
   new_im.rectangle(vertices, fill=fill, outline =outline)
 
 def draw_clusters(im, clusters):
+  im = im.copy()
   for c in clusters:
     draw_box(im, [c.vertices[0], c.vertices[2]], outline="red")
   im.show()
@@ -216,7 +217,7 @@ def cluster_texts(text_boxes):
     mean = np.average(widths)
     std = np.std(widths)
     # i don't know; need to try
-    w_threshold = mean
+    w_threshold = 12
     logger.debug("threshold {} mean {} std {}".format(w_threshold, mean, std))
     # sort from left to right
     c.sort(key=lambda x: x.center()[0])

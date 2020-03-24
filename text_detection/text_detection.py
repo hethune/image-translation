@@ -21,15 +21,18 @@ def load():
 def wipe_out_and_translate(img_path, texts):
   im = Image.open(img_path)
   logger.info("Clustering")
+  if DEBUG:
+    draw_clusters(im, texts)
   clusters = cluster_texts(texts)
-  # draw_clusters(im, clusters)
-  # print("Translating")
-  # original = [x.text for x in clusters]
-  # translated = translate(original)
-  # assert len(original) == len(translated)
-  # for i in range(0, len(translated)):
-  #   clusters[i].text = translated[i]
-  # print("Translated {} to {}".format(original, translated))
+  if DEBUG:
+    draw_clusters(im, clusters)
+  print("Translating")
+  original = [x.text for x in clusters]
+  translated = translate(original)
+  assert len(original) == len(translated)
+  for i in range(0, len(translated)):
+    clusters[i].text = translated[i]
+  print("Translated {} to {}".format(original, translated))
   logger.info("Calcuating text color and bg color")
   high_pass_im = high_pass_image(im)
   if DEBUG:
