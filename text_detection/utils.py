@@ -3,6 +3,7 @@ import  sys
 import html
 import logging
 import os
+import pickle
 
 from PIL import Image, ImageDraw, ImageFont, ImageDraw, ImageFilter
 import numpy as np
@@ -34,6 +35,16 @@ ch.setFormatter(formatter)
 # add the handlers to the logger
 logger.addHandler(fh)
 logger.addHandler(ch)
+
+
+def dump(data):
+  with open('data/data.dump', 'wb') as f:
+    pickle.dump(data, f)
+
+def load():
+  with open('data/data.dump', 'rb') as f:
+    data = pickle.load(f)
+    return data
 
 def draw_box(im, vertices, outline=None, fill=None):
   # create rectangle image 
@@ -80,10 +91,12 @@ def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
   rt = []
   gt = []
   bt = []
+  im = im.convert('RGB')
   if mask:
     mask = mask.convert('L')
   for i in range(x_min, x_max+1):
     for j in range(y_min,y_max+1):
+      print(im.getpixel((i,j)))
       r, g, b = im.getpixel((i, j))
       to_add = mask is None
       if mask:
@@ -103,7 +116,7 @@ def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
   b_mean = int(np.average(np.array(bt)))
   return (r_mean, g_mean, b_mean)
 
-def find_fit_font(im, text, font_type, m_width, m_height, max_scale=0.95, min_scale=0.8):
+def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_scale=0.8):
   draw_txt = ImageDraw.Draw(im.copy())
   success = False
   font_size = 10
@@ -245,7 +258,7 @@ def detect_text(path):
 
   results = []
 
-  print('Texts:')
+  logger.info('Texts:')
 
   for text in texts:
     print('\n"{}"'.format(text.description))
@@ -255,9 +268,8 @@ def detect_text(path):
 
     results.append(text_box)
 
-    print('bounds: {}'.format(vertices))
+    logger.info('bounds: {}'.format(vertices))
 
-  print(results)
   dump(results)
 
   if response.error.message:
@@ -265,28 +277,28 @@ def detect_text(path):
       '{}\nFor more info on error messages, check: '
       'https://cloud.google.com/apis/design/errors'.format(
         response.error.message))
-
+  return results
 
 def translate(text, source_language='zh-CN', target_language="en"):
+  def _split(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
   """Translates text into the target language.
   Make sure your project is whitelisted.
 
   Target must be an ISO 639-1 language code.
   See https://g.co/cloud/translate/v2/translate-reference#supported_languages
   """
-  assert type(text) is str or type(text) is list
+  assert type(text) is list
   translate_client = translate_v2.Client()
 
   # Text can also be a sequence of strings, in which case this method
   # will return a sequence of results for each text.
-  raw_result = translate_client.translate(
-    text, source_language=source_language, target_language=target_language, model="nmt")
+  raw_result = []
+  for ts in _split(text, 100):
+    raw_result += translate_client.translate(
+      ts, source_language=source_language, target_language=target_language, model="nmt")
 
-  if type(text) is str:
-    result = html.unescape(raw_result['translatedText'])
-  elif type(text) is list:
-    result = [html.unescape(x['translatedText']) for x in raw_result]
-  else:
-    raise Exception("Unknown return type from Google translate {} {}".format(type(t_text), t_text))
-
+  result = [html.unescape(x['translatedText']) for x in raw_result]
   return result

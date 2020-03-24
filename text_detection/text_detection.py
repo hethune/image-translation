@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import argparse
-import pickle
 
 from PIL import Image
 
@@ -8,15 +7,6 @@ from utils import draw_box, cluster_texts, low_pass_image, high_pass_image, get_
 from shape import TextBox
 
 FONT_TYPE = 'font/LucidaGrande.ttc'
-
-def dump(data):
-  with open('data/data.dump', 'wb') as f:
-    pickle.dump(data, f)
-
-def load():
-  with open('data/data.dump', 'rb') as f:
-    data = pickle.load(f)
-    return data
 
 def wipe_out_and_translate(img_path, texts):
   im = Image.open(img_path)
@@ -61,6 +51,6 @@ if __name__ == "__main__":
   parser.add_argument('--path', type=str, default=None, help='path to input image file')
   args = parser.parse_args()
 
-  # texts = detect_text(args.path)  
-  texts = load()
+  texts = detect_text(args.path)  
+  # texts = load()
   wipe_out_and_translate(args.path, texts)
