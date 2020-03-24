@@ -85,44 +85,50 @@ def high_pass_image(im):
   rgb_im = im.convert('RGB').filter(k)
   return rgb_im
 
-def get_average_color(im, x_min, x_max, y_min, y_max, mask=None, reverse=False):
+def get_average_color(im, x_min, x_max, y_min, y_max, margin=None, background_color=None, threshold=0.2):
   ''' reverse: True get edge; False get backgroud
-  bucket rgb by 10s and get most common bucket
+      bucket rgb by 10s and get most common bucket
+      margin: calculate the outside margin
+      background_color: minus_background color
   '''
   rt = []
   gt = []
   bt = []
-  original = []
   im = im.convert('RGB')
-  if mask:
-    mask = mask.convert('L')
-  for i in range(x_min, x_max+1):
-    for j in range(y_min,y_max+1):
+  x_start = x_min
+  y_start = y_min
+  x_end = x_max
+  y_end = y_max
+  if margin:
+    x_start = max(0, x_min - margin)
+    y_start = max(0, y_min - margin)
+    x_end = min(im.size[0], x_max + margin)
+    y_end = min(im.size[1], y_max + margin)
+  for i in range(x_start, x_end+1):
+    for j in range(y_start,y_end+1):
+      if margin:
+        if x_min <= i and i <= x_max and y_min <= j and j <= y_max:
+          continue
       r, g, b = im.getpixel((i, j))
-      original.append((r,g,b))
-      to_add = mask is None
-      if mask:
-        c = mask.getpixel((i,j))
-        if reverse:
-          if c < 10:
-            to_add = True
-        else:
-          if c >= 10:
-            to_add = True
-      if to_add:
-        rt.append(r)
-        gt.append(g)
-        bt.append(b)
-  orignal_mean = (np.average(np.array([x[0] for x in original])), np.average(np.array([x[1] for x in original])), np.average(np.array([x[2] for x in original])))
+      is_background = True
+      tmp = [r,g,b]
+      if background_color:
+        for idx in range(0, len(background_color)):
+          if tmp[idx] < background_color[idx] * (1-threshold) or background_color[idx]*(1+threshold) < tmp[idx]:
+            is_background = False
+      if background_color and is_background:
+        continue
+      rt.append(r)
+      gt.append(g)
+      bt.append(b)
   # hro = np.histogram([x[0] for x in original], bins=16)
   # logger.debug("Original bins: {}".format(hro))
-  # hrt = np.histogram(rt, bins=16)
-  # logger.debug("Masked bins: {}".format(hrt))
+  for i in [rt, gt, bt]:
+   hr = np.histogram(i, bins=8)
+   logger.debug("Bins: {}".format(hr))
   r_mean = int(np.average(np.array(rt)))
   g_mean = int(np.average(np.array(gt)))
   b_mean = int(np.average(np.array(bt)))
-  logger.debug("original color mean is {} masked is {}".format(orignal_mean, (r_mean, g_mean, b_mean)))
-  logger.debug("original data point size is {} masked is {}".format(len(original), len(rt)))
   return (r_mean, g_mean, b_mean)
 
 def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_scale=0.8):
