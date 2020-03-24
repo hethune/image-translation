@@ -4,7 +4,7 @@ import pickle
 
 from PIL import Image
 
-from utils import draw_box, cluster_texts, get_background_color, get_text_color, draw_text, detect_text, translate
+from utils import draw_box, cluster_texts, get_background_color, get_text_color, draw_text, detect_text, translate, logger
 from shape import TextBox
 
 FONT_TYPE = 'font/LucidaGrande.ttc'

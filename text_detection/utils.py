@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import  sys
 import html
+import logging
+import os
 
 from PIL import Image, ImageDraw, ImageFont, ImageDraw
 import numpy as np
@@ -8,6 +10,28 @@ from scipy import stats
 from google.cloud import vision, translate_v2
 
 from shape import TextBox
+
+dirname = os.path.dirname(__file__)
+LOG_FILE = os.path.join(dirname, '../log/image-tranlsation.log')
+
+logger = logging.getLogger('image-tranlsation')
+
+level = logging.WARNING
+
+logger.setLevel(level)
+# create file handler which logs even debug messages
+fh = logging.FileHandler(LOG_FILE)
+fh.setLevel(level)
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(level)
+# create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s %(message)s [%(filename)s:%(lineno)s %(funcName)s]', datefmt='%m-%d %H:%M:%S')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+# add the handlers to the logger
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 def draw_box(im, vertices, outline=None, fill=None):
   # create rectangle image 
@@ -62,7 +86,8 @@ def find_fit_font(im, text, font_type, m_width, m_height, max_scale=0.95, min_sc
   last_step = font_size
   font = ImageFont.truetype(font_type, font_size)
   width, height = draw_txt.textsize(text, font=font)
-  while not success:
+  while not success and font_size >= 1:
+    logger.debug("Trying font size {}. size is {} {} comparing to {} {}".format(font_size, width, height, m_width, m_height))
     if width < m_width * max_scale and height < m_height * max_scale and width > m_width * min_scale and height > m_height * min_scale:
       success = True
       break
@@ -82,8 +107,10 @@ def find_fit_font(im, text, font_type, m_width, m_height, max_scale=0.95, min_sc
       font = ImageFont.truetype(font_type, font_size)
       width, height = draw_txt.textsize(text, font=font)
       continue
-    print("Cannot find proper font")
+    logger.warning("Cannot find proper font. Using size {}".format(font_size))
     break
+  if font_size < 1:
+    font_size = 1
   return font_size
 
 def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, max_scale=0.95, min_scale=0.8):
@@ -92,7 +119,11 @@ def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, max_scale=
   font_size = find_fit_font(im, text, font_type, m_width, m_height, max_scale, min_scale)
   font = ImageFont.truetype(font_type, font_size)
   draw = ImageDraw.Draw(im)
-  draw.text((x_min, y_min), text, color ,font=font)
+  try:
+    draw.text((x_min, y_min), text, color ,font=font)
+  except OSError as e:
+    logger.error("{} not drawed due to OS error".format(text))
+    logger.error(e)
   return
 
 
