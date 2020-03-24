@@ -20,8 +20,17 @@ class TextBox(object):
   def center(self):
     return ((self.vertices[0][0]+self.vertices[2][0])/2, (self.vertices[0][1]+self.vertices[2][1])/2)
 
+  def left(self):
+    return self.vertices[0][0]
+
+  def right(self):
+    return self.vertices[2][0]
+
   def height(self):
     return self.vertices[2][1] - self.vertices[0][1]
+
+  def width(self):
+    return self.vertices[2][0] - self.vertices[0][0]
 
   def __eq__(self, other):
     if not isinstance(other, self.__class__):

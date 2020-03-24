@@ -38,6 +38,11 @@ def draw_box(im, vertices, outline=None, fill=None):
   new_im = ImageDraw.Draw(im)
   new_im.rectangle(vertices, fill=fill, outline =outline)
 
+def draw_clusters(im, clusters):
+  for c in clusters:
+    draw_box(im, [c.vertices[0], c.vertices[2]], outline="red")
+  im.show()
+
 def get_background_color(im, x_min, x_max, y_min, y_max):
   rgb_im = im.convert('RGB')
   rt = []
@@ -167,21 +172,45 @@ def combine(text_boxes):
 def cluster_texts(text_boxes):
   # remove box a if b belongs to a
   f_text_boxes = remove_parents(text_boxes)
+  # vertcle groups
   heights = [x.height() for x in f_text_boxes]
-  threshold = np.percentile(np.array(heights), 0.3)
-  cluster = []
+  v_threshold = np.percentile(np.array(heights), 0.3)
+  clusters = []
   while len(f_text_boxes) > 0:
     t = f_text_boxes.pop()
     added = False
-    for c in cluster:
+    for c in clusters:
       _t = c[0]
-      if abs(t.center()[1] - _t.center()[1]) <= threshold:
+      if abs(t.center()[1] - _t.center()[1]) <= v_threshold:
         c.append(t)
         added = True
         break
     if not added:
-      cluster.append([t])
-  combined_cluster = [combine(c) for c in cluster]
+      clusters.append([t])
+  # horizontal groups
+  n_clusters = []
+  for c in clusters:
+    if len(c) == 1:
+      n_clusters.append(c)
+      continue
+    # get cluster member width and std
+    widths = np.array([x.width() for x in c])
+    mean = np.average(widths)
+    std = np.std(widths)
+    # i don't know; need to try
+    w_threshold = mean + 2*std
+    logger.debug("threshold {} mean {} std {}".format(w_threshold, mean, std))
+    # sort from left to right
+    c.sort(key=lambda x: x.center()[0])
+    tmp = [[c[0]]]
+    for idx in range(1, len(c)):
+      if c[idx].left() - c[idx-1].right() < w_threshold:
+        tmp[-1].append(c[idx])
+      else:
+        tmp.append([c[idx]])
+    for t in tmp:
+      n_clusters.append(t)
+  combined_cluster = [combine(c) for c in n_clusters]
   return combined_cluster
 
 

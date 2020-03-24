@@ -4,7 +4,7 @@ import pickle
 
 from PIL import Image
 
-from utils import draw_box, cluster_texts, get_background_color, get_text_color, draw_text, detect_text, translate, logger
+from utils import draw_box, cluster_texts, get_background_color, get_text_color, draw_text, detect_text, translate, logger, draw_clusters
 from shape import TextBox
 
 FONT_TYPE = 'font/LucidaGrande.ttc'
@@ -19,8 +19,11 @@ def load():
     return data
 
 def wipe_out_and_translate(img_path, texts):
+  im = Image.open(img_path)
   print("Clustering")
   clusters = cluster_texts(texts)
+  draw_clusters(im, clusters)
+  return
   print("Translating")
   original = [x.text for x in clusters]
   translated = translate(original)
@@ -28,7 +31,6 @@ def wipe_out_and_translate(img_path, texts):
   for i in range(0, len(translated)):
     clusters[i].text = translated[i]
   print("Translated {} to {}".format(original, translated))
-  im = Image.open(img_path)
   print("Calcuating text color and bg color")
   for c in clusters:
     vertice = [c.vertices[0], c.vertices[2]]
