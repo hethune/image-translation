@@ -3,7 +3,9 @@ import  sys
 import html
 import logging
 import os
+import textwrap
 import pickle
+from math import ceil
 
 from PIL import Image, ImageDraw, ImageFont, ImageDraw, ImageFilter
 import numpy as np
@@ -131,52 +133,56 @@ def get_average_color(im, x_min, x_max, y_min, y_max, margin=None, background_co
   b_mean = int(np.average(np.array(bt)))
   return (r_mean, g_mean, b_mean)
 
-def find_fit_font(im, text, font_type, m_width, m_height, max_scale, min_scale, height_only=False):
+def find_fit_font(im, text, font_type, m_width, m_height, w_min_scale, h_min_scale, w_overflow, h_overflow):
   draw_txt = ImageDraw.Draw(im.copy())
   success = False
-  font_size = 10
+  font_size = 1
   last_step = font_size
+  wrap_length = len(text)
   font = ImageFont.truetype(font_type, font_size)
-  width, height = draw_txt.textsize(text, font=font)
-  while not success and font_size >= 1:
-    logger.debug("Trying font size {}. size is {} {} comparing to {} {}".format(font_size, width, height, m_width, m_height))
-    width_satisfied = height_only or (width < m_width * max_scale and width > m_width * min_scale)
-    if  width_satisfied and height < m_height * max_scale and height > m_height * min_scale:
+  lines = textwrap.wrap(text, width=wrap_length)
+  width, height = draw_txt.textsize(lines[0], font=font)
+  while not success:
+    logger.debug("Trying font size {}. size is {} {} lines {} comparing to {} {}".format(font_size, width, height, len(lines), m_width, m_height))
+
+    width_satisfied =  width > m_width * w_min_scale
+    height_satisfied =  height * len(lines) > m_height * h_min_scale
+    if width_satisfied and height_satisfied:
       success = True
       break
-    
-    width_satisfied = height_only or width < m_width * max_scale
-    if not width_satisfied or height > m_height * max_scale:
-      if font_size - 1 == last_step:
-        break
-      last_step = font_size
-      font_size -= 1
-      font = ImageFont.truetype(font_type, font_size)
-      width, height = draw_txt.textsize(text, font=font)
-      continue
-    width_satisfied = height_only or width > m_width * min_scale
-    if not width_satisfied or height < m_height * min_scale:
-      if font_size + 1 == last_step:
-        break
-      last_step = font_size
-      font_size += 1
-      font = ImageFont.truetype(font_type, font_size)
-      width, height = draw_txt.textsize(text, font=font)
-      continue
-    logger.warning("Cannot find proper font. Using size {}".format(font_size))
-    break
-  if font_size < 1:
-    font_size = 1
-  return font_size
 
-def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, max_scale=0.75, min_scale=0.65):
+    font_size += 1
+    font = ImageFont.truetype(font_type, font_size)
+    width, height = draw_txt.textsize(lines[0], font=font)
+
+    # check if width is maxmized 
+    if width > m_width*w_overflow:
+      # split lines
+      wrap_length = ceil(wrap_length/2)
+      lines = textwrap.wrap(text, width=wrap_length)
+      width, height = draw_txt.textsize(lines[0], font=font)
+      # check if height is maximized
+      if height * len(lines) > m_height*h_overflow:
+        logger.warning("Overflowing; break")
+        wrap_length = wrap_length * 2
+        success = True
+        break
+    
+  return font_size, wrap_length
+
+def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, w_min_scale=0.7, h_min_scale=0.7, w_overflow=1.2, h_overflow=1.5):
   m_width = x_max - x_min
   m_height = y_max - y_min
-  font_size = find_fit_font(im, text, font_type, m_width, m_height, max_scale, min_scale, height_only=True)
+  font_size, wrap_length = find_fit_font(im, text, font_type, m_width, m_height, w_min_scale, h_min_scale, w_overflow, h_overflow)
   font = ImageFont.truetype(font_type, font_size)
   draw = ImageDraw.Draw(im)
+  lines= textwrap.wrap(text, width=wrap_length)
+  y_text = y_min
   try:
-    draw.text((x_min, y_min), text, color ,font=font)
+    for line in lines:
+      width, height = font.getsize(line)
+      draw.text(((x_min+x_max-width)/2, y_text), line, color ,font=font)
+      y_text += height
   except OSError as e:
     logger.error("{} not drawed due to OS error".format(text))
     logger.error(e)
