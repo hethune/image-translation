@@ -19,7 +19,7 @@ LOG_FILE = os.path.join(dirname, '../log/image-tranlsation.log')
 
 logger = logging.getLogger('image-tranlsation')
 
-level = logging.DEBUG if DEBUG else loggging.WARNING
+level = logging.DEBUG if DEBUG else logging.INFO
 
 logger.setLevel(level)
 # create file handler which logs even debug messages
@@ -131,7 +131,7 @@ def get_average_color(im, x_min, x_max, y_min, y_max, margin=None, background_co
   b_mean = int(np.average(np.array(bt)))
   return (r_mean, g_mean, b_mean)
 
-def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_scale=0.8, height_only=False):
+def find_fit_font(im, text, font_type, m_width, m_height, max_scale, min_scale, height_only=False):
   draw_txt = ImageDraw.Draw(im.copy())
   success = False
   font_size = 10
@@ -140,15 +140,13 @@ def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_sca
   width, height = draw_txt.textsize(text, font=font)
   while not success and font_size >= 1:
     logger.debug("Trying font size {}. size is {} {} comparing to {} {}".format(font_size, width, height, m_width, m_height))
-    if  height < m_height * max_scale and height > m_height * min_scale:
-      if height_only:
-        success = True
-        break
-      elif width < m_width * max_scale and width > m_width * min_scale:
-        success = True
-        break
-    width_satisfied = height_only or width > m_width * max_scale
-    if width_satisfied or height > m_height * max_scale:
+    width_satisfied = height_only or (width < m_width * max_scale and width > m_width * min_scale)
+    if  width_satisfied and height < m_height * max_scale and height > m_height * min_scale:
+      success = True
+      break
+    
+    width_satisfied = height_only or width < m_width * max_scale
+    if not width_satisfied or height > m_height * max_scale:
       if font_size - 1 == last_step:
         break
       last_step = font_size
@@ -156,8 +154,8 @@ def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_sca
       font = ImageFont.truetype(font_type, font_size)
       width, height = draw_txt.textsize(text, font=font)
       continue
-    width_satisfied = height_only or width < m_width * min_scale
-    if height < m_height * min_scale:
+    width_satisfied = height_only or width > m_width * min_scale
+    if not width_satisfied or height < m_height * min_scale:
       if font_size + 1 == last_step:
         break
       last_step = font_size
@@ -171,7 +169,7 @@ def find_fit_font(im, text, font_type, m_width, m_height, max_scale=1.1, min_sca
     font_size = 1
   return font_size
 
-def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, max_scale=0.95, min_scale=0.8):
+def draw_text(im, text, color, font_type, x_min, x_max, y_min, y_max, max_scale=0.75, min_scale=0.65):
   m_width = x_max - x_min
   m_height = y_max - y_min
   font_size = find_fit_font(im, text, font_type, m_width, m_height, max_scale, min_scale, height_only=True)
@@ -282,14 +280,12 @@ def detect_text(path):
   logger.info('Texts:')
 
   for text in texts:
-    print('\n"{}"'.format(text.description))
-
     vertices = [(vertex.x, vertex.y) for vertex in text.bounding_poly.vertices]
     text_box = TextBox(text.description, vertices)
 
     results.append(text_box)
 
-    logger.info('bounds: {}'.format(vertices))
+    logger.debug('bounds: {}'.format(vertices))
 
   dump(results)
 

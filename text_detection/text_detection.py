@@ -62,8 +62,8 @@ if __name__ == "__main__":
   parser.add_argument('--theme', '-t', type=str, default=None)
   args = parser.parse_args()
 
-  assert args.theme in ['dark', 'light', 'white']
+  assert args.theme in [None, 'dark', 'light', 'white']
 
-  # texts = detect_text(args.path)  
-  texts = load()
+  texts = detect_text(args.path)  
+  # texts = load()
   wipe_out_and_translate(args.path, texts, theme=args.theme)
