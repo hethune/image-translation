@@ -143,7 +143,7 @@ def find_fit_font(im, text, font_type, m_width, m_height, w_min_scale, h_min_sca
   lines = textwrap.wrap(text, width=wrap_length)
   width, height = draw_txt.textsize(lines[0], font=font)
   while not success:
-    logger.debug("Trying font size {}. size is {} {} lines {} comparing to {} {}".format(font_size, width, height, len(lines), m_width, m_height))
+    # logger.debug("Trying font size {}. size is {} {} lines {} comparing to {} {}".format(font_size, width, height, len(lines), m_width, m_height))
 
     width_satisfied =  width > m_width * w_min_scale
     height_satisfied =  height * len(lines) > m_height * h_min_scale
@@ -213,7 +213,7 @@ def combine(text_boxes):
   um = sys.maxsize
   dm = 0
   for t in text_boxes:
-    texts += t.text
+    texts += ' ' + t.text
     for v in t.vertices:
       if v[0] < lm:
         lm = v[0]
@@ -254,17 +254,25 @@ def cluster_texts(text_boxes):
     widths = np.array([x.width() for x in c])
     mean = np.average(widths)
     std = np.std(widths)
+    mean_char_width = sum([x.width() for x in c])/sum([len(x.text) for x in c])
+    texts = ' '.join([x.text for x in c])
     # i don't know; need to try
     w_threshold = 12
-    logger.debug("threshold {} mean {} std {}".format(w_threshold, mean, std))
+    logger.debug("threshold {} mean {} std {} mean char width {} texts {}".format(w_threshold, mean, std, mean_char_width, texts))
     # sort from left to right
     c.sort(key=lambda x: x.center()[0])
     tmp = [[c[0]]]
+    msg = "Disances "
     for idx in range(1, len(c)):
-      if c[idx].left() - c[idx-1].right() < w_threshold:
+      distance = c[idx].left() - c[idx-1].right()
+      msg += "{}-{}: {}||".format(c[idx-1].text, c[idx].text, distance)
+      if distance < w_threshold:
+        tmp[-1].append(c[idx])
+      elif distance < mean_char_width * 2:
         tmp[-1].append(c[idx])
       else:
         tmp.append([c[idx]])
+    logger.debug(msg)
     for t in tmp:
       n_clusters.append(t)
   combined_cluster = [combine(c) for c in n_clusters]

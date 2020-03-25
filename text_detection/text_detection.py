@@ -6,7 +6,7 @@ from PIL import Image
 from utils import draw_box, cluster_texts, low_pass_image, high_pass_image, get_average_color, draw_text, detect_text, translate, logger, draw_clusters, DEBUG, load
 from shape import TextBox
 
-FONT_TYPE = 'font/PingFang.ttc'
+FONT_TYPE = 'text_detection/font/PingFang-SC-Bold.ttf'
 
 def wipe_out_and_translate(img_path, texts, theme=None):
   if theme == "dark":
