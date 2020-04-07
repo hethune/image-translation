@@ -8,7 +8,7 @@ from shape import TextBox
 
 FONT_TYPE = 'text_detection/font/PingFang-SC-Bold.ttf'
 
-def wipe_out_and_translate(img_path, texts, theme=None):
+def wipe_out_and_translate(img_path, texts, theme=None, target_language="en"):
   if theme == "dark":
     BG_COLOR = (43, 43, 43)
     TEXT_COLOR = (255, 255, 255)
@@ -28,7 +28,7 @@ def wipe_out_and_translate(img_path, texts, theme=None):
     draw_clusters(im, clusters)
   logger.info("Translating")
   original = [x.text for x in clusters]
-  translated = translate(original)
+  translated = translate(original, target_language=target_language)
   assert len(original) == len(translated)
   for i in range(0, len(translated)):
     clusters[i].text = translated[i]
@@ -60,10 +60,11 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Process Images.')
   parser.add_argument('--path', '-p',type=str, default=None, help='path to input image file')
   parser.add_argument('--theme', '-t', type=str, default=None)
+  parser.add_argument('--target_language', '-tl', type=str, default='en', help="target langguage")
   args = parser.parse_args()
 
   assert args.theme in [None, 'dark', 'light', 'white']
 
   texts = detect_text(args.path)  
   # texts = load()
-  wipe_out_and_translate(args.path, texts, theme=args.theme)
+  wipe_out_and_translate(args.path, texts, theme=args.theme, target_language=args.target_language)

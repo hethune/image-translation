@@ -14,7 +14,7 @@ from google.cloud import vision, translate_v2
 
 from shape import TextBox
 
-DEBUG = True
+DEBUG = False
 
 dirname = os.path.dirname(__file__)
 LOG_FILE = os.path.join(dirname, '../log/image-tranlsation.log')
@@ -229,21 +229,26 @@ def combine(text_boxes):
 def cluster_texts(text_boxes):
   # remove box a if b belongs to a
   f_text_boxes = remove_parents(text_boxes)
+  logger.info("{} original boxes".format(len(f_text_boxes)))
   # vertcle groups
   heights = [x.height() for x in f_text_boxes]
   v_threshold = np.percentile(np.array(heights), 0.3)
+  logger.debug("v_threshold is {}".format(v_threshold))
   clusters = []
   while len(f_text_boxes) > 0:
     t = f_text_boxes.pop()
     added = False
     for c in clusters:
       _t = c[0]
-      if abs(t.center()[1] - _t.center()[1]) <= v_threshold:
+      center_distance = abs(t.center()[1] - _t.center()[1])
+      logger.debug("center_distance between {} and {} is {}".format(t.text, _t.text, center_distance))
+      if center_distance <= v_threshold:
         c.append(t)
         added = True
         break
     if not added:
       clusters.append([t])
+  logger.info("{} horizontal alined boxes".format(len(clusters)))
   # horizontal groups
   n_clusters = []
   for c in clusters:
@@ -275,6 +280,7 @@ def cluster_texts(text_boxes):
     logger.debug(msg)
     for t in tmp:
       n_clusters.append(t)
+  logger.info("{} verticle splited boxes".format(len(n_clusters)))
   combined_cluster = [combine(c) for c in n_clusters]
   return combined_cluster
 
@@ -299,7 +305,7 @@ def detect_text(path):
 
     results.append(text_box)
 
-    logger.debug('bounds: {}'.format(vertices))
+    # logger.debug('bounds: {}'.format(vertices))
 
   dump(results)
 
@@ -310,7 +316,7 @@ def detect_text(path):
         response.error.message))
   return results
 
-def translate(text, source_language='zh-CN', target_language="en"):
+def translate(text, target_language="en"):
   def _split(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
@@ -329,7 +335,8 @@ def translate(text, source_language='zh-CN', target_language="en"):
   raw_result = []
   for ts in _split(text, 100):
     raw_result += translate_client.translate(
-      ts, source_language=source_language, target_language=target_language, model="nmt")
+      ts, target_language=target_language, model="nmt")
 
   result = [html.unescape(x['translatedText']) for x in raw_result]
+  logger.info("Translated text is {}".format(result))
   return result
